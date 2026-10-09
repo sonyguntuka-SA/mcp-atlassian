@@ -999,6 +999,43 @@ class TestMarkdownToAdfImages:
         )
 
 
+class TestMarkdownToAdfLineBreaks:
+    """``<br>`` inside a paragraph or table cell becomes an ADF hardBreak."""
+
+    def test_br_in_paragraph_becomes_hard_break(self):
+        result = markdown_to_adf("Open the page<br>Click **Save**<br/>Check")
+        content = result["content"][0]["content"]
+        assert [n["type"] for n in content] == [
+            "text",
+            "hardBreak",
+            "text",
+            "text",
+            "hardBreak",
+            "text",
+        ]
+        assert content[0]["text"] == "Open the page"
+        assert content[3]["text"] == "Save"
+        assert content[3]["marks"] == [{"type": "strong"}]
+        assert content[5]["text"] == "Check"
+
+    def test_br_in_table_cell(self):
+        md = "| Steps |\n| --- |\n| 1. one<BR>2. two |"
+        result = markdown_to_adf(md)
+        table = next(n for n in result["content"] if n["type"] == "table")
+        cell = table["content"][1]["content"][0]["content"][0]["content"]
+        assert [n["type"] for n in cell] == ["text", "hardBreak", "text"]
+        assert cell[2]["text"] == "2. two"
+
+    def test_text_without_br_is_unchanged(self):
+        result = markdown_to_adf("plain **bold** text")
+        assert all(n["type"] != "hardBreak" for n in result["content"][0]["content"])
+
+    def test_leading_and_trailing_br_keep_their_breaks(self):
+        result = markdown_to_adf("<br>middle<br>")
+        content = result["content"][0]["content"]
+        assert [n["type"] for n in content] == ["hardBreak", "text", "hardBreak"]
+
+
 class TestAdfMediaPreservation:
     """Tests for preserving existing media nodes during description rewrites."""
 

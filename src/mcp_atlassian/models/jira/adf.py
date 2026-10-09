@@ -83,9 +83,38 @@ def _append_text_nodes(
         nodes.append(node)
 
 
+_HTML_LINE_BREAK_RE = re.compile(r"<br\s*/?>", re.IGNORECASE)
+
+
 def _parse_inline_formatting(
     text: str, jira_base_url: str = ""
 ) -> list[dict[str, Any]]:
+    """Parse inline Markdown into ADF inline nodes, honouring ``<br>`` breaks.
+
+    Markdown has no way to break a line inside a table cell, so authors use
+    ``<br>``; GitHub renders it, Jira has no equivalent in plain text. Each
+    ``<br>`` (or ``<br/>``) becomes an ADF ``hardBreak`` node between the
+    inline nodes of the segments around it.
+
+    Args:
+        text: Raw text potentially containing inline Markdown formatting.
+        jira_base_url: Jira base URL used to link bare issue keys.
+
+    Returns:
+        List of ADF inline nodes.
+    """
+    segments = _HTML_LINE_BREAK_RE.split(text)
+    if len(segments) == 1:
+        return _parse_inline_segment(text, jira_base_url)
+    nodes: list[dict[str, Any]] = []
+    for index, segment in enumerate(segments):
+        if index > 0:
+            nodes.append({"type": "hardBreak"})
+        nodes.extend(_parse_inline_segment(segment, jira_base_url))
+    return nodes
+
+
+def _parse_inline_segment(text: str, jira_base_url: str = "") -> list[dict[str, Any]]:
     """Parse inline Markdown formatting into ADF inline nodes.
 
     Handles: bold (**), italic (*), inline code (`), links ([text](url)),
